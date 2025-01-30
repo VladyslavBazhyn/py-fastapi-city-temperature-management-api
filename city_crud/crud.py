@@ -21,6 +21,8 @@ def get_city(db: Session, city_id: int):
     if city is None:
         raise HTTPException(status_code=404, detail="City not found")
 
+    return city
+
 
 def create_city(db: Session, city: schemas.CityCreate):
     db_city = models.City(

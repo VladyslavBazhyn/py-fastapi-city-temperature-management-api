@@ -1,8 +1,7 @@
-from city_crud import crud
-from city_crud import schemas
-from db.engine import get_db
+import temperature as temp
+import city_crud as city
+from db.engine import get_db, create_db_and_tables
 
-from city_crud.models import create_db_and_tables
 
 from fastapi import FastAPI, Depends, Query, HTTPException
 
@@ -14,28 +13,28 @@ app = FastAPI()
 create_db_and_tables()
 
 
-@app.post("/cities/", response_model=schemas.CityCreate)
-def create_city(city: schemas.CityCreate, db: Session = Depends(get_db)):
-    return crud.create_city(db=db, city=city)
+@app.post("/cities/", response_model=city.schemas.CityCreate)
+def create_city(city_create: city.schemas.CityCreate, db: Session = Depends(get_db)):
+    return city.crud.create_city(db=db, city=city_create)
 
 
-@app.get("/cities/", response_model=list[schemas.CityResponse])
+@app.get("/cities/", response_model=list[city.schemas.CityResponse])
 def get_cities(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100)
 ):
-    return crud.get_cities(db=db, skip=skip, limit=limit)
+    return city.crud.get_cities(db=db, skip=skip, limit=limit)
 
 
-@app.get("/cities/{city_id}/", response_model=schemas.CityResponse)
+@app.get("/cities/{city_id}/", response_model=city.schemas.CityResponse)
 def get_city(db: Session, city_id: int):
-    return crud.get_city(db=db, city_id=city_id)
+    return city.crud.get_city(db=db, city_id=city_id)
 
 
-@app.put("/cities/{city_id}/", response_model=schemas.CityResponse)
-def update_city(db: Session, city_id: int, updated_city: schemas.CityCreate):
-    db_city = crud.update_city(db=db, city_id=city_id, updated_city=updated_city)
+@app.put("/cities/{city_id}/", response_model=city.schemas.CityResponse)
+def update_city(db: Session, city_id: int, updated_city: city.schemas.CityCreate):
+    db_city = city.crud.update_city(db=db, city_id=city_id, updated_city=updated_city)
 
     if not db_city:
         raise HTTPException(status_code=404, detail="City not found")
@@ -43,8 +42,13 @@ def update_city(db: Session, city_id: int, updated_city: schemas.CityCreate):
 
 
 @app.delete("/cities/{city_id}")
-def delete_city(city_id: int, db: Session = Depends(get_db)):
-    deleted_city = crud.delete_city(db=db, city_id=city_id)
+def delete_city(city_delete_id: int, db: Session = Depends(get_db)):
+    deleted_city = city.crud.delete_city(db=db, city_id=city_delete_id)
     if not deleted_city:
-        raise HTTPException(status_code=404, detail=f"City with id {city_id} not found")
+        raise HTTPException(status_code=404, detail=f"City with id {city_delete_id} not found")
     return deleted_city
+
+
+@app.post("/temperatures/update/", response_model=temp.schemas.TemperatureUpdate)
+def update_temperature(db: Session = Depends(get_db)):
+    return temp.crud.temperature_update(db=db)

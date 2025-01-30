@@ -14,6 +14,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def create_db_and_tables():
+    Base.metadata.create_all(engine)
+
+
 def get_db():
     db = SessionLocal()
     try:
