@@ -4,10 +4,11 @@ import requests
 import os
 from dotenv import load_dotenv
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends, Query
 
 from sqlalchemy.orm import Session
 
+from db.engine import get_db
 from temperature import models
 from city_crud.models import City
 
@@ -42,11 +43,17 @@ def get_temperature(city_id: int, db: Session):
     ).filter_by(city_id=city_id).first()
 
     if db_temperature is None:
-        raise HTTPException(
-            status_code=404, detail="Temperature not found"
-        )
+        return None
 
     return db_temperature
+
+
+def get_temperatures(
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100)
+):
+    return db.query(models.Temperature).offset(skip).limit(limit).all()
 
 
 def temperature_update_all(db: Session):
@@ -63,8 +70,12 @@ def temperature_update_all(db: Session):
 
             data = response.json()
 
-            temperature_to_update = data.get("current").get("temp_c")
-            datetime_to_update = data.get("location").get("localtime")
+            temperature_to_update = round(data.get("current").get("temp_c"))
+            print(temperature_to_update)
+            datetime_to_update = datetime.strptime(
+                data.get("location").get("localtime"), "%Y-%m-%d %H:%M"
+            )
+            print(datetime_to_update)
 
             if temperature_to_update is None or datetime_to_update is None:
                 continue
