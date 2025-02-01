@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from db.engine import get_db
 from temperature import models
 from city_crud.models import City
+from temperature.schemas import TemperatureResponse
 
 load_dotenv()
 
@@ -56,29 +57,25 @@ def get_temperatures(
     return db.query(models.Temperature).offset(skip).limit(limit).all()
 
 
-def temperature_update_all(db: Session):
-
+def temperature_update_all(db: Session) -> list[TemperatureResponse]:
     cities = db.query(City).all()
+    updated_temperatures = []
 
     for city in cities:
-
+        print(city.name)
         try:
             response = requests.get(
                 WEATHER_API_URL, params={"key": API_KEY, "q": city.name}
             )
+
             response.raise_for_status()
 
             data = response.json()
 
-            temperature_to_update = round(data.get("current").get("temp_c"))
-            print(temperature_to_update)
+            temperature_to_update = data.get("current").get("temp_c")
             datetime_to_update = datetime.strptime(
                 data.get("location").get("localtime"), "%Y-%m-%d %H:%M"
             )
-            print(datetime_to_update)
-
-            if temperature_to_update is None or datetime_to_update is None:
-                continue
 
             db_temperature = get_temperature(city_id=city.id, db=db)
 
@@ -86,20 +83,23 @@ def temperature_update_all(db: Session):
                 db_temperature.temperature = temperature_to_update
                 db_temperature.date_time = datetime_to_update
             else:
-                print("This city don't have a temperature yet.")
+                print("This city doesn't have a temperature yet.")
                 db_temperature = temperature_create(
                     db=db,
                     city_id=city.id,
                     temperature=temperature_to_update,
                     date_time=datetime_to_update
                 )
-                print("Temperature fot this city have been created.")
+                print("Temperature for this city has been created.")
 
             db.commit()
             db.refresh(db_temperature)
 
-            return db_temperature
+            updated_temperatures.append(TemperatureResponse.model_validate(db_temperature))
 
+        except requests.RequestException as e:
+            print(f"Error fetching temperature for {city.name}: {e}")
         except Exception as e:
-
             print(f"Error updating temperature for {city.name}: {e}")
+
+    return updated_temperatures

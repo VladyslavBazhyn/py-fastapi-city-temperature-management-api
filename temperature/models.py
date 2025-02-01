@@ -14,4 +14,4 @@ class Temperature(Base):
     id: int = Column(Integer, primary_key=True, index=True)
     city_id: int = Column(ForeignKey("cities.id"))
     date_time: datetime = Column(DateTime, nullable=False)
-    temperature: int = Column(Integer, unique=False)
+    temperature: int = Column(Float, unique=False)

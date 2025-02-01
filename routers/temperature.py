@@ -8,7 +8,7 @@ from db.engine import get_db
 router = APIRouter()
 
 
-@router.post("/update/", response_model=temp_schemas.TemperatureUpdate)
+@router.post("/update/", response_model=list[temp_schemas.TemperatureUpdate])
 def update_temperature(db: Session = Depends(get_db)):
     return temp_crud.temperature_update_all(db=db)
 
