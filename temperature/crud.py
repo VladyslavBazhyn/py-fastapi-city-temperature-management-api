@@ -1,13 +1,15 @@
 from datetime import datetime
 
 import httpx
+
 import os
+
 from dotenv import load_dotenv
 
 from fastapi import Depends, Query
+
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 from db.engine import get_db
 from temperature import models
@@ -49,10 +51,18 @@ async def get_temperature(city_id: int, db: AsyncSession):
 
 async def get_temperatures(
     db: AsyncSession = Depends(get_db),
+    city_id: int = Query(default=None),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100)
 ):
-    result = await db.execute(select(models.Temperature).offset(skip).limit(limit))
+    stmt = select(models.Temperature)
+
+    if city_id is not None:
+        stmt = stmt.filter_by(city_id=city_id)
+
+    stmt = stmt.offset(skip).limit(limit)
+
+    result = await db.execute(stmt)
 
     db_temperatures = result.scalars().all()
 

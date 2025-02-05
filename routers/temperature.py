@@ -16,9 +16,10 @@ async def update_temperature(db: AsyncSession = Depends(get_db)):
 @router.get("/", response_model=list[temp_schemas.TemperatureResponse])
 async def get_temperatures(
     db: AsyncSession = Depends(get_db),
+    city_id: int = Query(default=None),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100)
 ):
-    temperatures = await temp_crud.get_temperatures(db=db, skip=skip, limit=limit)
+    temperatures = await temp_crud.get_temperatures(db=db, skip=skip, limit=limit, city_id=city_id)
 
     return [temp_schemas.TemperatureResponse.model_validate(temp) for temp in temperatures]
