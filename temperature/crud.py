@@ -23,15 +23,10 @@ API_KEY = os.environ.get("API_KEY")
 
 
 async def temperature_create(
-    city_id: int,
-    date_time: datetime,
-    temperature: float,
-    db: AsyncSession
+    city_id: int, date_time: datetime, temperature: float, db: AsyncSession
 ):
     db_temperature = models.Temperature(
-        city_id=city_id,
-        date_time=date_time,
-        temperature=temperature
+        city_id=city_id, date_time=date_time, temperature=temperature
     )
 
     db.add(db_temperature)
@@ -53,7 +48,7 @@ async def get_temperatures(
     db: AsyncSession = Depends(get_db),
     city_id: int = Query(default=None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100)
+    limit: int = Query(10, ge=1, le=100),
 ):
     stmt = select(models.Temperature)
 
@@ -80,7 +75,9 @@ async def temperature_update_all(db: AsyncSession) -> list[TemperatureResponse]:
         for city in cities:
             try:
                 response = await client.get(
-                    url=WEATHER_API_URL, params={"key": API_KEY, "q": city.name}, timeout=10.0
+                    url=WEATHER_API_URL,
+                    params={"key": API_KEY, "q": city.name},
+                    timeout=10.0,
                 )
 
                 response.raise_for_status()
@@ -102,14 +99,16 @@ async def temperature_update_all(db: AsyncSession) -> list[TemperatureResponse]:
                         db=db,
                         city_id=city.id,
                         temperature=temperature_to_update,
-                        date_time=datetime_to_update
+                        date_time=datetime_to_update,
                     )
                     print(f"Temperature for {city.name} has been created.")
 
                 await db.commit()
                 await db.refresh(db_temperature)
 
-                updated_temperatures.append(TemperatureResponse.model_validate(db_temperature))
+                updated_temperatures.append(
+                    TemperatureResponse.model_validate(db_temperature)
+                )
 
             except httpx.RequestError as e:
                 print(f"Error fetching temperature for {city.name}: {e}")

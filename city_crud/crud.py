@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def get_cities(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100)
+    limit: int = Query(10, ge=1, le=100),
 ):
     result = await db.execute(select(models.City).offset(skip).limit(limit))
 
@@ -33,10 +33,7 @@ async def get_city(db: AsyncSession, city_id: int):
 
 
 async def create_city(db: AsyncSession, city: schemas.CityCreate):
-    db_city = models.City(
-        name=city.name,
-        additional_info=city.additional_info
-    )
+    db_city = models.City(name=city.name, additional_info=city.additional_info)
 
     db.add(db_city)
     await db.commit()

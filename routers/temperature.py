@@ -18,8 +18,12 @@ async def get_temperatures(
     db: AsyncSession = Depends(get_db),
     city_id: int = Query(default=None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100)
+    limit: int = Query(10, ge=1, le=100),
 ):
-    temperatures = await temp_crud.get_temperatures(db=db, skip=skip, limit=limit, city_id=city_id)
+    temperatures = await temp_crud.get_temperatures(
+        db=db, skip=skip, limit=limit, city_id=city_id
+    )
 
-    return [temp_schemas.TemperatureResponse.model_validate(temp) for temp in temperatures]
+    return [
+        temp_schemas.TemperatureResponse.model_validate(temp) for temp in temperatures
+    ]

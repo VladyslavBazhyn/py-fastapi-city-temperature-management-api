@@ -11,7 +11,9 @@ router = APIRouter()
 
 
 @router.post("/", response_model=city_schemas.CityCreate)
-async def create_city(city_create: city_schemas.CityCreate, db: AsyncSession = Depends(get_db)):
+async def create_city(
+    city_create: city_schemas.CityCreate, db: AsyncSession = Depends(get_db)
+):
     return await city_crud.create_city(db=db, city=city_create)
 
 
@@ -19,7 +21,7 @@ async def create_city(city_create: city_schemas.CityCreate, db: AsyncSession = D
 async def get_cities(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100)
+    limit: int = Query(10, ge=1, le=100),
 ):
     cities = await city_crud.get_cities(db=db, skip=skip, limit=limit)
 
@@ -33,9 +35,13 @@ async def get_city(city_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.put("/{city_id}/", response_model=city_schemas.CityResponse)
 async def update_city(
-    city_id: int, updated_city: city_schemas.CityCreate, db: AsyncSession = Depends(get_db)
+    city_id: int,
+    updated_city: city_schemas.CityCreate,
+    db: AsyncSession = Depends(get_db),
 ):
-    db_city = await city_crud.update_city(db=db, city_id=city_id, updated_city=updated_city)
+    db_city = await city_crud.update_city(
+        db=db, city_id=city_id, updated_city=updated_city
+    )
 
     return db_city
 
