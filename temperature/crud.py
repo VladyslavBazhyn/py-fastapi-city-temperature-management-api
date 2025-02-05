@@ -1,12 +1,13 @@
 from datetime import datetime
 
-import requests
+import httpx
 import os
 from dotenv import load_dotenv
 
-from fastapi import HTTPException, Depends, Query
+from fastapi import Depends, Query
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy.orm import Session
 
 from db.engine import get_db
 from temperature import models
@@ -19,11 +20,11 @@ WEATHER_API_URL = os.environ.get("WEATHER_API_URL")
 API_KEY = os.environ.get("API_KEY")
 
 
-def temperature_create(
+async def temperature_create(
     city_id: int,
     date_time: datetime,
-    temperature: int,
-    db: Session
+    temperature: float,
+    db: AsyncSession
 ):
     db_temperature = models.Temperature(
         city_id=city_id,
@@ -32,74 +33,77 @@ def temperature_create(
     )
 
     db.add(db_temperature)
-    db.commit()
-    db.refresh(db_temperature)
+    await db.commit()
+    await db.refresh(db_temperature)
 
     return db_temperature
 
 
-def get_temperature(city_id: int, db: Session):
-    db_temperature = db.query(
-        models.Temperature
-    ).filter_by(city_id=city_id).first()
+async def get_temperature(city_id: int, db: AsyncSession):
+    result = await db.execute(select(models.Temperature).filter_by(city_id=city_id))
 
-    if db_temperature is None:
-        return None
+    db_temperature = result.scalars().first()
 
     return db_temperature
 
 
-def get_temperatures(
-    db: Session = Depends(get_db),
+async def get_temperatures(
+    db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100)
 ):
-    return db.query(models.Temperature).offset(skip).limit(limit).all()
+    result = await db.execute(select(models.Temperature).offset(skip).limit(limit))
+
+    db_temperatures = result.scalars().all()
+
+    return db_temperatures
 
 
-def temperature_update_all(db: Session) -> list[TemperatureResponse]:
-    cities = db.query(City).all()
+async def temperature_update_all(db: AsyncSession) -> list[TemperatureResponse]:
+
+    result = await db.execute(select(City))
+    cities = result.scalars().all()
+
     updated_temperatures = []
 
-    for city in cities:
-        print(city.name)
-        try:
-            response = requests.get(
-                WEATHER_API_URL, params={"key": API_KEY, "q": city.name}
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-            temperature_to_update = data.get("current").get("temp_c")
-            datetime_to_update = datetime.strptime(
-                data.get("location").get("localtime"), "%Y-%m-%d %H:%M"
-            )
-
-            db_temperature = get_temperature(city_id=city.id, db=db)
-
-            if db_temperature:
-                db_temperature.temperature = temperature_to_update
-                db_temperature.date_time = datetime_to_update
-            else:
-                print("This city doesn't have a temperature yet.")
-                db_temperature = temperature_create(
-                    db=db,
-                    city_id=city.id,
-                    temperature=temperature_to_update,
-                    date_time=datetime_to_update
+    async with httpx.AsyncClient() as client:
+        for city in cities:
+            try:
+                response = await client.get(
+                    url=WEATHER_API_URL, params={"key": API_KEY, "q": city.name}, timeout=10.0
                 )
-                print("Temperature for this city has been created.")
 
-            db.commit()
-            db.refresh(db_temperature)
+                response.raise_for_status()
+                data = response.json()
 
-            updated_temperatures.append(TemperatureResponse.model_validate(db_temperature))
+                temperature_to_update = data.get("current").get("temp_c")
+                datetime_to_update = datetime.strptime(
+                    data.get("location").get("localtime"), "%Y-%m-%d %H:%M"
+                )
 
-        except requests.RequestException as e:
-            print(f"Error fetching temperature for {city.name}: {e}")
-        except Exception as e:
-            print(f"Error updating temperature for {city.name}: {e}")
+                db_temperature = await get_temperature(city_id=city.id, db=db)
+
+                if db_temperature:
+                    db_temperature.temperature = temperature_to_update
+                    db_temperature.date_time = datetime_to_update
+                else:
+                    print(f"{city.name} doesn't have a temperature yet.")
+                    db_temperature = await temperature_create(
+                        db=db,
+                        city_id=city.id,
+                        temperature=temperature_to_update,
+                        date_time=datetime_to_update
+                    )
+                    print(f"Temperature for {city.name} has been created.")
+
+                await db.commit()
+                await db.refresh(db_temperature)
+
+                updated_temperatures.append(TemperatureResponse.model_validate(db_temperature))
+
+            except httpx.RequestError as e:
+                print(f"Error fetching temperature for {city.name}: {e}")
+            except Exception as e:
+                print(f"Error updating temperature for {city.name}: {e}")
 
     return updated_temperatures

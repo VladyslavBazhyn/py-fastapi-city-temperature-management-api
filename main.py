@@ -7,8 +7,11 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-# Create database tables
-create_db_and_tables()
+
+@app.on_event("startup")
+async def on_startup():
+    await create_db_and_tables()
+
 
 app.include_router(city_router, prefix="/cities", tags=["cities"])
 app.include_router(temperature_router, prefix="/temperatures", tags=["temperatures"])

@@ -1,5 +1,5 @@
 from fastapi import Depends, APIRouter, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from temperature import schemas as temp_schemas
 from temperature import crud as temp_crud
@@ -9,14 +9,16 @@ router = APIRouter()
 
 
 @router.post("/update/", response_model=list[temp_schemas.TemperatureUpdate])
-def update_temperature(db: Session = Depends(get_db)):
-    return temp_crud.temperature_update_all(db=db)
+async def update_temperature(db: AsyncSession = Depends(get_db)):
+    return await temp_crud.temperature_update_all(db=db)
 
 
 @router.get("/", response_model=list[temp_schemas.TemperatureResponse])
-def get_temperatures(
-    db: Session = Depends(get_db),
+async def get_temperatures(
+    db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100)
 ):
-    return temp_crud.get_temperatures(db=db, skip=skip, limit=limit)
+    temperatures = await temp_crud.get_temperatures(db=db, skip=skip, limit=limit)
+
+    return [temp_schemas.TemperatureResponse.model_validate(temp) for temp in temperatures]
